@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>个人工作台</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:"Microsoft Yahei",sans-serif}
+body{background:#f4f7fa;padding:24px;color:#222}
+.container{max-width:1100px;margin:0 auto}
+.top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.time-box{font-size:22px;font-weight:bold}
+.card{background:#fff;border-radius:10px;padding:18px;margin-bottom:16px;box-shadow:0 1px 4px #00000015}
+h3{margin-bottom:12px;color:#333}
+.input-row{display:flex;gap:8px;margin-bottom:10px}
+input{padding:8px 10px;border:1px solid #ddd;border-radius:6px;flex:1;font-size:14px}
+button{padding:8px 14px;border:none;border-radius:6px;background:#4080ff;color:#fff;cursor:pointer}
+button:hover{background:#2b70f0}
+.todo-item{display:flex;align-items:center;padding:6px 0;border-bottom:#eee 1px solid}
+.link-group{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.link-group a{display:block;padding:10px;text-align:center;background:#edf2fb;border-radius:8px;color:#222;text-decoration:none}
+.tomato{text-align:center;font-size:36px;padding:10px}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="top-bar">
+    <div class="time-box" id="clock"></div>
+  </div>
+
+  <div class="card">
+    <h3>今日目标</h3>
+    <input type="text" id="dailyGoal" placeholder="写下今天要完成的核心目标">
+  </div>
+
+  <div class="card">
+    <h3>待办事项</h3>
+    <div class="input-row">
+      <input id="todoInput" placeholder="新增待办">
+      <button onclick="addTodo()">添加</button>
+    </div>
+    <div id="todoList"></div>
+  </div>
+
+  <div class="card">
+    <h3>番茄钟（可修改时长，单位分钟）</h3>
+    <div class="tomato">
+      <input style="width:70px" id="tomatoMin" value="25"> 分钟
+      <div id="tomatoShow">25:00</div>
+      <button onclick="startTomato()">开始</button>
+      <button onclick="stopTomato()">停止</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>快捷工具</h3>
+    <div class="link-group">
+      <a href="#" onclick="openWorkFolder()">📂 D盘工作文件夹</a>
+      <a href="https://mail.qq.com" target="_blank">📧 QQ邮箱</a>
+      <a href="https://mail.163.com" target="_blank">📧 163邮箱</a>
+      <a href="https://weixin.qq.com/" target="_blank">💬 微信网页版</a>
+      <a href="https://im.qq.com/" target="_blank">🐧 QQ网页</a>
+      <a href="https://www.dingtalk.com/" target="_blank">📎 钉钉网页</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// 时钟
+function updateClock(){
+  const d=new Date();
+  document.getElementById("clock").innerText = d.toLocaleDateString()+" "+d.toLocaleTimeString();
+}
+setInterval(updateClock,1000);
+updateClock();
+
+// 待办
+let todoArr=JSON.parse(localStorage.getItem("todos")||"[]");
+function renderTodo(){
+  const box=document.getElementById("todoList");
+  box.innerHTML=""
+  todoArr.forEach((item,idx)=>{
+    const div=document.createElement("div");
+    div.className="todo-item";
+    div.innerHTML=`<input type="checkbox" ${item.done?"checked":""} onchange="toggle(${idx})">
+    <span style="${item.done?'text-decoration:line-through':''}">${item.text}</span>
+    <button style="margin-left:auto;background:#f55" onclick="del(${idx})">删除</button>`
+    box.appendChild(div);
+  })
+  localStorage.setItem("todos",JSON.stringify(todoArr))
+}
+function addTodo(){
+  const val=document.getElementById("todoInput").value.trim();
+  if(!val)return;
+  todoArr.push({text:val,done:false});
+  document.getElementById("todoInput").value=""
+  renderTodo();
+}
+function toggle(i){todoArr[i].done=!todoArr[i].done;renderTodo()}
+function del(i){todoArr.splice(i,1);renderTodo()}
+renderTodo();
+
+//番茄钟
+let tomatoTimer=null;
+let remainSec=0;
+function refreshTomatoView(){
+  const m=Math.floor(remainSec/60);
+  const s=remainSec%60;
+  document.getElementById("tomatoShow").innerText = String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+}
+function startTomato(){
+  if(tomatoTimer) clearInterval(tomatoTimer);
+  const min=Number(document.getElementById("tomatoMin").value)||25;
+  remainSec=min*60;
+  refreshTomatoView();
+  tomatoTimer=setInterval(()=>{
+    remainSec--;
+    refreshTomatoView();
+    if(remainSec<=0){clearInterval(tomatoTimer);tomatoTimer=null;alert("时间到！")}
+  },1000)
+}
+function stopTomato(){
+  if(tomatoTimer){clearInterval(tomatoTimer);tomatoTimer=null}
+}
+
+//Electron调用主进程打开本地文件夹
+const ipcRenderer=window.require?window.require("electron").ipcRenderer:null;
+function openWorkFolder(){
+  if(ipcRenderer){
+    ipcRenderer.send("open-folder","D:\\工作");
+  }else{
+    alert("仅Electron软件内可打开本地文件夹");
+  }
+}
+</script>
+</body>
+</html>
